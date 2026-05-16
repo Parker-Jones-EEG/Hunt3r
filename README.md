@@ -40,7 +40,7 @@ git clone https://github.com
 cd Hunt3r
 
 # Grant binary execution privileges to the engine script
-chmod +x hunter_v6.sh
+chmod +x Hunt3r.sh
 ```
 
 ---
@@ -49,7 +49,7 @@ chmod +x hunter_v6.sh
 Due to deep-layer packet manipulation and core network raw socket management requirements, Hunt3r must be initiated using root system authorization:
 
 ```bash
-sudo ./hunter_v6.sh
+sudo ./Hunt3r.sh
 ```
 
 ---
