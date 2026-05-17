@@ -1,32 +1,10 @@
 #!/bin/bash
 
 # =====================================================
-# HUNT3R ENGINE v7 - SAFE CLI RECON TOOL
+# HUNT3R ENGINE v7.2 - STABLE MAC EDITION
 # =====================================================
 
-VERSION="v7 GitHub Edition"
-
-# ==============================
-# AUTO UPDATE (SAFE)
-# ==============================
-if [ -d ".git" ]; then
-    echo "[+] Checking for updates..."
-
-    git fetch origin main >/dev/null 2>&1
-
-    LOCAL=$(git rev-parse HEAD)
-    REMOTE=$(git rev-parse origin/main)
-
-    if [ "$LOCAL" != "$REMOTE" ]; then
-        echo "[↑] Update found — pulling latest version..."
-        git pull origin main >/dev/null 2>&1
-        echo "[✓] Updated. Restarting..."
-        exec bash "$0"
-        exit
-    else
-        echo "[✓] Hunt3r is up to date"
-    fi
-fi
+VERSION="v7.2 Stable Build"
 
 # ==============================
 # LOGO
@@ -36,11 +14,11 @@ echo "|                                                    |"
 echo "|   ██   ██  ██   ██  ████  ██████  ██████  █████    |"
 echo "|   ██   ██  ██   ██  ██  ██  ██     ██      ██  ██   |"
 echo "|   ███████  ██   ██  ████   ████   ██████   █████    |"
-echo "|   ██   ██  ██   ██  ██  ██  ██        ██   ██ ██    |"
+echo "|   ██   ██  ██   ██  ██  ██  ██        ██   ██ ██   |"
 echo "|   ██   ██   █████   ██  ██  ██████  ██████  ██  ██  |"
 echo "|                                                    |"
-echo "|            -- HUNT3R RECON ENGINE v7 --            |"
-echo "|         safe • scoped • controlled • fast          |"
+echo "|            -- HUNT3R RECON ENGINE --              |"
+echo "|         stable • safe • scoped • mac-ready        |"
 echo "|____________________________________________________|"
 echo ""
 
@@ -48,33 +26,39 @@ echo "[ Version: $VERSION ]"
 echo ""
 
 # ==============================
-# STARTUP CINEMATIC (CLEAN CLI STYLE)
+# CHECK DEPENDENCIES
 # ==============================
-echo "[+] Initializing Hunt3r Engine..."
-sleep 0.4
+echo "[+] Checking tools..."
 
-echo "Loading core modules [■□□□□□□□□□]"
-sleep 0.2
-echo "Loading core modules [■■■□□□□□□□]"
-sleep 0.2
-echo "Loading core modules [■■■■■□□□□□]"
-sleep 0.2
-echo "Loading core modules [■■■■■■■□□□]"
-sleep 0.2
-echo "Loading core modules [■■■■■■■■■■]"
-sleep 0.2
+SUBLIST3R="$HOME/Sublist3r/sublist3r.py"
+DIRSEARCH="$HOME/Sublist3r/dirsearch/dirsearch.py"
+
+if command -v nmap >/dev/null 2>&1; then
+    echo "[✓] Nmap found"
+else
+    echo "[✗] Nmap missing (brew install nmap)"
+fi
+
+if [ -f "$SUBLIST3R" ]; then
+    echo "[✓] Sublist3r found"
+else
+    echo "[✗] Sublist3r missing"
+fi
+
+if [ -f "$DIRSEARCH" ]; then
+    echo "[✓] Dirsearch found"
+else
+    echo "[✗] Dirsearch missing"
+fi
 
 echo ""
-echo "[✓] Core system initialized"
-echo "[✓] Scope engine ready"
-echo "[✓] GitHub sync active"
-echo "[✓] Logging enabled"
+echo "=============================="
 echo ""
 
 # ==============================
-# SCOPE SETUP
+# SCOPE INPUT
 # ==============================
-echo "[+] Enter scope domains (blank line to finish)"
+echo "[+] Enter scope (blank line to finish)"
 > scope.txt
 
 while true; do
@@ -93,6 +77,11 @@ echo ""
 # ==============================
 read -p "Target domain: " TARGET
 
+if [ -z "$TARGET" ]; then
+    echo "[!] No target set"
+    exit 1
+fi
+
 # ==============================
 # SCOPE CHECK
 # ==============================
@@ -104,47 +93,69 @@ is_in_scope() {
 }
 
 if ! is_in_scope "$TARGET"; then
-    echo "[⛔] OUT OF SCOPE — BLOCKED"
+    echo "[⛔] OUT OF SCOPE - STOPPED"
     exit 1
 fi
 
-# ==============================
-# MODULES (SAFE ONLY)
-# ==============================
-RUN_NMAP=1
-
 echo ""
-echo "===== MODULES ====="
-echo "[1] Nmap service scan : ON"
-echo ""
-
-read -p "Run scan? (y/n): " go
-[ "$go" != "y" ] && exit 0
-
-# ==============================
-# RECON EXECUTION
-# ==============================
-echo ""
-echo "[+] Starting recon on $TARGET"
-echo ""
-
-IP=$(dig +short "$TARGET" | tail -n1)
-[ -z "$IP" ] && IP="$TARGET"
-
-echo "[+] Target IP: $IP"
+echo "[+] Target approved"
 echo ""
 
 # ==============================
-# SAFE NMAP SCAN
+# SUBLIST3R
 # ==============================
-echo "[+] Running Nmap scan..."
-nmap -sV --top-50-ports "$IP" -oN hunt3r_nmap.txt
+if [ -f "$SUBLIST3R" ]; then
+    echo "[+] Running Sublist3r..."
+
+    python3 "$SUBLIST3R" -d "$TARGET" -o hunt3r_raw.txt >/dev/null 2>&1
+
+    if [ -f hunt3r_raw.txt ]; then
+        sort -u hunt3r_raw.txt > hunt3r_clean.txt
+        echo "[✓] Subdomains saved"
+    else
+        echo "[!] No subdomains found"
+    fi
+else
+    echo "[SKIP] Sublist3r not installed"
+fi
+
+echo ""
 
 # ==============================
-# FINISH
+# DIRSEARCH
 # ==============================
+if [ -f "$DIRSEARCH" ] && [ -f hunt3r_clean.txt ]; then
+    echo "[+] Running Dirsearch..."
+
+    head -n 3 hunt3r_clean.txt | while read sub; do
+        echo "[→] https://$sub"
+
+        python3 "$DIRSEARCH" \
+        -u "https://$sub" -e php,html,txt -t 10
+    done
+else
+    echo "[SKIP] Dirsearch not available or no subdomains"
+fi
+
+echo ""
+
+# ==============================
+# NMAP (ALWAYS RUNS)
+# ==============================
+if command -v nmap >/dev/null 2>&1; then
+    echo "[+] Running Nmap..."
+
+    IP=$(dig +short "$TARGET" | tail -n1)
+    [ -z "$IP" ] && IP="$TARGET"
+
+    nmap -sV --top-50-ports "$IP" -oN hunt3r_nmap.txt
+
+    echo "[✓] Nmap saved to hunt3r_nmap.txt"
+else
+    echo "[!] Nmap missing"
+fi
+
 echo ""
 echo "================ DONE ================"
-echo "[✓] Results saved: hunt3r_nmap.txt"
-echo "[✓] Scope validated"
+echo "[✓] Hunt3r complete"
 echo "======================================"
