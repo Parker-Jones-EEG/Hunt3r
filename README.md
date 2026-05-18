@@ -1,51 +1,59 @@
-# 💻 Hunt3r Engine v6.3 — Safe Recon Framework
+# 💻 Hunt3r Engine v8.0 — Safe Recon Framework
 
-Hunt3r is a lightweight, modular reconnaissance framework designed for authorized security testing and Vulnerability Disclosure Programs (VDPs).
+Hunt3r is a lightweight, modular reconnaissance framework built for authorized security testing and Vulnerability Disclosure Programs (VDPs).
 
-It focuses on safe, non-intrusive attack surface mapping, including subdomain enumeration, directory discovery, and service fingerprinting.
+It focuses on safe attack surface mapping only, including:
+- Subdomain enumeration
+- Directory discovery
+- Service and port fingerprinting
 
-This version is intentionally designed to remain compliant with most HackerOne-style VDP policies by excluding any exploitation or intrusive testing modules.
+It intentionally avoids exploitation features and intrusive scanning to remain VDP-compliant.
 
 ---
 
 # ⚙️ Features
 
+- Single-command execution mode (`--target example.com`)
 - Built-in scope enforcement system
 - Safe recon-only scanning pipeline
-- Subdomain enumeration (Sublist3r)
-- Lightweight directory discovery (Dirsearch)
-- Service and port fingerprinting (Nmap)
-- Auto-generated recon reports
-- Interactive module toggling system
-- No exploitation tools included (VDP safe by design)
+- Subdomain enumeration (Sublist3r support + auto-detect pathing)
+- Live host filtering (httpx support)
+- Directory discovery (Dirsearch)
+- Service & port fingerprinting (Nmap safe mode)
+- Auto file cleanup per run
+- Interactive fallback mode if no arguments are provided
+- VDP-safe by design (no exploitation modules)
 
 ---
 
 # 🛠️ Included Tools
 
 ## Sublist3r
-Used for discovering subdomains and mapping external attack surfaces.
+Used for passive subdomain discovery and external attack surface mapping.
+
+## httpx
+Filters and validates live web hosts before deeper scanning.
 
 ## Dirsearch
 Performs lightweight directory and endpoint discovery on web assets.
 
 ## Nmap
-Used for safe service detection and basic port scanning.
+Used for safe service detection and minimal port enumeration.
 
 ---
 
 # 📌 Scope System
 
-Before scanning, users must define allowed domains.
+Hunt3r enforces scope before any scanning begins.
 
-- Only in-scope targets are allowed
-- Out-of-scope domains are automatically blocked
-- Supports wildcards like *.example.com
+- Only approved domains are scanned
+- Wildcards supported (e.g. *.example.com)
+- Out-of-scope targets are blocked automatically
 
-This helps ensure compliance with:
+This helps maintain compliance with:
 - HackerOne Vulnerability Disclosure Programs
+- Bug bounty rules
 - Responsible disclosure policies
-- Organization-specific security rules
 
 ---
 
@@ -53,10 +61,9 @@ This helps ensure compliance with:
 
 git clone https://github.com/Parker-Jones-EEG/Hunt3r.git
 cd Hunt3r
-chmod +x Hunt3r.sh
+chmod +x hunt3r.sh
 
-sudo apt update
-sudo apt install -y nmap python3 python3-pip git
+brew install nmap python3 git httpx
 
 git clone https://github.com/aboul3la/Sublist3r.git ~/Sublist3r
 pip3 install -r ~/Sublist3r/requirements.txt
@@ -67,22 +74,21 @@ git clone https://github.com/maurosoria/dirsearch.git ~/Sublist3r/dirsearch
 
 # ▶️ Usage
 
-sudo ./Hunt3r.sh
+## Single-command mode
 
-Workflow:
-1. Enter scope domains
-2. Select modules
-3. Enter target
-4. Run recon
-5. Review outputs
+./hunt3r.sh --target example.com
+
+## Interactive mode
+
+./hunt3r.sh
 
 ---
 
 # 📦 Output Files
 
 hunt3r_clean.txt — discovered subdomains  
+live.txt — active hosts (httpx results)  
 hunt3r_nmap.txt — service/port scan results  
-HUNT3R_REPORT.md — generated report  
 
 ---
 
@@ -91,16 +97,17 @@ HUNT3R_REPORT.md — generated report
 This tool is intended only for authorized security testing.
 
 Allowed:
-- VDP programs (HackerOne, Bugcrowd, etc.)
+- Vulnerability Disclosure Programs (VDPs)
+- Bug bounty programs
 - Explicit permission testing
 - Owned infrastructure
 
 Not allowed:
 - Unauthorized scanning
-- Exploitation or disruption
+- Exploitation or disruption of systems
 - Out-of-scope targets
 
-Users are responsible for compliance with all laws and program rules.
+Users are responsible for compliance with laws and program rules.
 
 ---
 
