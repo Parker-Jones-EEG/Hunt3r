@@ -1,40 +1,177 @@
 #!/bin/bash
 
 # =====================================================
-# HUNT3R ENGINE v7.3 - CLEAN STABLE VDP EDITION
+# HUNT3R ENGINE v8.0 - SINGLE COMMAND EDITION
 # =====================================================
 
-VERSION="v7.3 Stable VDP Build"
+VERSION="v8.0 One-Line Target Build"
 
 # ==============================
-# CLEAN OLD FILES
+# CLEAN OUTPUT FILES
 # ==============================
-rm -f scope.txt
-rm -f hunt3r_raw.txt
-rm -f hunt3r_clean.txt
-rm -f hunt3r_nmap.txt
-rm -f live.txt
+rm -f scope.txt hunt3r_raw.txt hunt3r_clean.txt hunt3r_nmap.txt live.txt
 
 # ==============================
-# LOGO
+# PARSE ARGUMENTS
+# ==============================
+TARGET=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --target)
+            TARGET="$2"
+            shift
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# ==============================
+# LOGO v2 (CLEAN + MODERN)
 # ==============================
 clear
-
-echo " ____________________________________________________ "
-echo "|                                                    |"
-echo "|   ██   ██  ██   ██  ████  ██████  ██████  █████    |"
-echo "|   ██   ██  ██   ██  ██  ██  ██     ██      ██  ██  |"
-echo "|   ███████  ██   ██  ████   ████   ██████   █████   |"
-echo "|   ██   ██  ██   ██  ██  ██  ██        ██   ██ ██   |"
-echo "|   ██   ██   █████   ██  ██  ██████  ██████  ██  ██ |"
-echo "|                                                    |"
-echo "|            -- HUNT3R RECON ENGINE --               |"
-echo "|         stable • safe • scoped • mac-ready         |"
-echo "|____________________________________________________|"
 echo ""
-
+echo "====================================================="
+echo ""
+echo "   ██╗  ██╗██╗   ██╗███╗   ██╗████████╗██████╗ ██████╗ "
+echo "   ██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔══██╗██╔══██╗"
+echo "   ███████║██║   ██║██╔██╗ ██║   ██║   ██████╔╝██████╔╝"
+echo "   ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══██╗██╔══██╗"
+echo "   ██║  ██║╚██████╔╝██║ ╚████║   ██║   ██║  ██║██║  ██║"
+echo "   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝"
+echo ""
+echo "            H U N T 3 R   R E C O N   E N G I N E"
+echo "      passive • scoped • fast • VDP-friendly toolkit"
+echo ""
+echo "====================================================="
 echo "[ Version: $VERSION ]"
 echo ""
+
+# ==============================
+# TOOL AUTO-DETECT
+# ==============================
+SUBLIST3R=$(find ~ -name "sublist3r.py" 2>/dev/null | head -n 1)
+DIRSEARCH=$(find ~ -name "dirsearch.py" 2>/dev/null | head -n 1)
+
+echo "[+] Checking tools..."
+echo ""
+
+command -v nmap >/dev/null && echo "[✓] Nmap" || echo "[✗] Nmap missing"
+command -v httpx >/dev/null && echo "[✓] httpx" || echo "[!] httpx optional"
+
+[ -n "$SUBLIST3R" ] && echo "[✓] Sublist3r found" || echo "[✗] Sublist3r missing"
+[ -n "$DIRSEARCH" ] && echo "[✓] Dirsearch found" || echo "[✗] Dirsearch missing"
+
+echo ""
+echo "=============================="
+echo ""
+
+# ==============================
+# INTERACTIVE FALLBACK
+# ==============================
+if [ -z "$TARGET" ]; then
+    read -p "Target domain (--target example.com): " TARGET
+fi
+
+if [ -z "$TARGET" ]; then
+    echo "[!] No target provided"
+    exit 1
+fi
+
+echo "[+] Target: $TARGET"
+echo ""
+
+# ==============================
+# SUBDOMAIN ENUM
+# ==============================
+if [ -n "$SUBLIST3R" ]; then
+    echo "[+] Subdomain enumeration..."
+
+    python3 "$SUBLIST3R" -d "$TARGET" -o hunt3r_raw.txt >/dev/null 2>&1
+
+    if [ -f hunt3r_raw.txt ]; then
+        sort -u hunt3r_raw.txt > hunt3r_clean.txt
+        echo "[✓] Subdomains:"
+        cat hunt3r_clean.txt
+    fi
+else
+    echo "[SKIP] Sublist3r missing"
+fi
+
+echo ""
+
+# ==============================
+# LIVE HOSTS (httpx)
+# ==============================
+if command -v httpx >/dev/null 2>&1 && [ -f hunt3r_clean.txt ]; then
+    echo "[+] Checking live hosts..."
+    cat hunt3r_clean.txt | httpx -silent > live.txt
+
+    echo "[✓] Live hosts:"
+    cat live.txt
+fi
+
+echo ""
+
+# ==============================
+# DIRSEARCH
+# ==============================
+if [ -n "$DIRSEARCH" ]; then
+
+    INPUT_FILE="hunt3r_clean.txt"
+    [ -f live.txt ] && INPUT_FILE="live.txt"
+
+    echo "[+] Directory scan targets:"
+    cat "$INPUT_FILE"
+    echo ""
+
+    head -n 3 "$INPUT_FILE" | while read -r sub; do
+        [ -z "$sub" ] && continue
+
+        echo "---------------------------------"
+        echo "[→] Scanning: $sub"
+        echo "---------------------------------"
+
+        python3 "$DIRSEARCH" \
+        -u "$sub" \
+        -e php,html,txt \
+        -t 5 \
+        --random-agent \
+        --delay=0.5
+    done
+
+else
+    echo "[SKIP] Dirsearch missing"
+fi
+
+echo ""
+
+# ==============================
+# NMAP (SAFE MODE)
+# ==============================
+if command -v nmap >/dev/null 2>&1; then
+
+    echo "[+] Nmap scan (safe mode)..."
+
+    IP=$(dig +short "$TARGET" | tail -n1)
+    [ -z "$IP" ] && IP="$TARGET"
+
+    echo "[DEBUG] IP: $IP"
+    echo ""
+
+    nmap -Pn -T2 --top-ports 20 "$IP" -oN hunt3r_nmap.txt
+
+    echo "[✓] Nmap saved"
+
+fi
+
+echo ""
+echo "====================================================="
+echo "[✓] Hunt3r finished"
+echo "====================================================="echo ""
 
 # ==============================
 # TOOL PATHS
