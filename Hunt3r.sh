@@ -1,24 +1,35 @@
 #!/bin/bash
 
 # =====================================================
-# HUNT3R ENGINE v7.2 - STABLE MAC EDITION
+# HUNT3R ENGINE v7.3 - CLEAN STABLE VDP EDITION
 # =====================================================
 
-VERSION="v7.2 Stable Build"
+VERSION="v7.3 Stable VDP Build"
+
+# ==============================
+# CLEAN OLD FILES
+# ==============================
+rm -f scope.txt
+rm -f hunt3r_raw.txt
+rm -f hunt3r_clean.txt
+rm -f hunt3r_nmap.txt
+rm -f live.txt
 
 # ==============================
 # LOGO
 # ==============================
+clear
+
 echo " ____________________________________________________ "
 echo "|                                                    |"
 echo "|   ██   ██  ██   ██  ████  ██████  ██████  █████    |"
-echo "|   ██   ██  ██   ██  ██  ██  ██     ██      ██  ██   |"
-echo "|   ███████  ██   ██  ████   ████   ██████   █████    |"
+echo "|   ██   ██  ██   ██  ██  ██  ██     ██      ██  ██  |"
+echo "|   ███████  ██   ██  ████   ████   ██████   █████   |"
 echo "|   ██   ██  ██   ██  ██  ██  ██        ██   ██ ██   |"
-echo "|   ██   ██   █████   ██  ██  ██████  ██████  ██  ██  |"
+echo "|   ██   ██   █████   ██  ██  ██████  ██████  ██  ██ |"
 echo "|                                                    |"
-echo "|            -- HUNT3R RECON ENGINE --              |"
-echo "|         stable • safe • scoped • mac-ready        |"
+echo "|            -- HUNT3R RECON ENGINE --               |"
+echo "|         stable • safe • scoped • mac-ready         |"
 echo "|____________________________________________________|"
 echo ""
 
@@ -26,17 +37,21 @@ echo "[ Version: $VERSION ]"
 echo ""
 
 # ==============================
-# CHECK DEPENDENCIES
+# TOOL PATHS
+# ==============================
+SUBLIST3R="$HOME/tools/Sublist3r/sublist3r.py"
+DIRSEARCH="$HOME/tools/dirsearch/dirsearch.py"
+
+# ==============================
+# CHECK TOOLS
 # ==============================
 echo "[+] Checking tools..."
-
-SUBLIST3R="$HOME/Sublist3r/sublist3r.py"
-DIRSEARCH="$HOME/Sublist3r/dirsearch/dirsearch.py"
+echo ""
 
 if command -v nmap >/dev/null 2>&1; then
     echo "[✓] Nmap found"
 else
-    echo "[✗] Nmap missing (brew install nmap)"
+    echo "[✗] Nmap missing"
 fi
 
 if [ -f "$SUBLIST3R" ]; then
@@ -51,6 +66,12 @@ else
     echo "[✗] Dirsearch missing"
 fi
 
+if command -v httpx >/dev/null 2>&1; then
+    echo "[✓] httpx found"
+else
+    echo "[!] httpx optional but recommended"
+fi
+
 echo ""
 echo "=============================="
 echo ""
@@ -58,8 +79,9 @@ echo ""
 # ==============================
 # SCOPE INPUT
 # ==============================
-echo "[+] Enter scope (blank line to finish)"
-> scope.txt
+echo "[+] Enter scope domains"
+echo "[+] Press ENTER on blank line to finish"
+echo ""
 
 while true; do
     read -p "scope> " s
@@ -68,7 +90,7 @@ while true; do
 done
 
 echo ""
-echo "[+] Scope loaded:"
+echo "[+] Loaded Scope:"
 cat scope.txt
 echo ""
 
@@ -78,84 +100,143 @@ echo ""
 read -p "Target domain: " TARGET
 
 if [ -z "$TARGET" ]; then
-    echo "[!] No target set"
+    echo "[!] No target entered"
     exit 1
 fi
 
 # ==============================
-# SCOPE CHECK
+# SAFE SCOPE CHECK
 # ==============================
 is_in_scope() {
     while read -r d; do
-        [[ "$TARGET" == *"$d"* ]] && return 0
+        [[ "$TARGET" == "$d" || "$TARGET" == *."$d" ]] && return 0
     done < scope.txt
+
     return 1
 }
 
-if ! is_in_scope "$TARGET"; then
-    echo "[⛔] OUT OF SCOPE - STOPPED"
+if ! is_in_scope; then
+    echo ""
+    echo "[⛔] TARGET OUT OF SCOPE"
     exit 1
 fi
 
 echo ""
-echo "[+] Target approved"
+echo "[✓] Target approved"
 echo ""
 
 # ==============================
-# SUBLIST3R
+# SUBDOMAIN ENUM
 # ==============================
 if [ -f "$SUBLIST3R" ]; then
-    echo "[+] Running Sublist3r..."
 
-    python3 "$SUBLIST3R" -d "$TARGET" -o hunt3r_raw.txt >/dev/null 2>&1
+    echo "[+] Running Sublist3r..."
+    echo ""
+
+    python3 "$SUBLIST3R" \
+    -d "$TARGET" \
+    -o hunt3r_raw.txt >/dev/null 2>&1
 
     if [ -f hunt3r_raw.txt ]; then
+
         sort -u hunt3r_raw.txt > hunt3r_clean.txt
-        echo "[✓] Subdomains saved"
+
+        echo "[✓] Subdomains discovered:"
+        cat hunt3r_clean.txt
+
     else
         echo "[!] No subdomains found"
     fi
+
 else
-    echo "[SKIP] Sublist3r not installed"
+    echo "[SKIP] Sublist3r missing"
 fi
 
 echo ""
+
+# ==============================
+# LIVE HOST CHECK
+# ==============================
+if command -v httpx >/dev/null 2>&1 && [ -f hunt3r_clean.txt ]; then
+
+    echo "[+] Probing live hosts..."
+
+    cat hunt3r_clean.txt | httpx -silent > live.txt
+
+    echo ""
+    echo "[✓] Live hosts:"
+    cat live.txt
+    echo ""
+
+fi
 
 # ==============================
 # DIRSEARCH
 # ==============================
-if [ -f "$DIRSEARCH" ] && [ -f hunt3r_clean.txt ]; then
-    echo "[+] Running Dirsearch..."
+if [ -f "$DIRSEARCH" ]; then
 
-    head -n 3 hunt3r_clean.txt | while read sub; do
-        echo "[→] https://$sub"
+    echo "[+] Starting Dirsearch"
+    echo ""
+
+    if [ -f live.txt ]; then
+        INPUT_FILE="live.txt"
+    else
+        INPUT_FILE="hunt3r_clean.txt"
+    fi
+
+    echo "[DEBUG] Dirsearch Targets:"
+    cat "$INPUT_FILE"
+    echo ""
+
+    head -n 3 "$INPUT_FILE" | while read -r sub; do
+
+        [ -z "$sub" ] && continue
+
+        echo "================================="
+        echo "[→] Scanning: $sub"
+        echo "================================="
 
         python3 "$DIRSEARCH" \
-        -u "https://$sub" -e php,html,txt -t 10
+        -u "$sub" \
+        -e php,html,txt \
+        -t 5 \
+        --random-agent \
+        --delay=0.5
+
+        echo ""
+
     done
+
 else
-    echo "[SKIP] Dirsearch not available or no subdomains"
+    echo "[SKIP] Dirsearch missing"
 fi
 
 echo ""
 
 # ==============================
-# NMAP (ALWAYS RUNS)
+# NMAP
 # ==============================
 if command -v nmap >/dev/null 2>&1; then
-    echo "[+] Running Nmap..."
+
+    echo "[+] Running safe Nmap scan..."
 
     IP=$(dig +short "$TARGET" | tail -n1)
+
     [ -z "$IP" ] && IP="$TARGET"
 
-    nmap -sV --top-50-ports "$IP" -oN hunt3r_nmap.txt
+    echo "[DEBUG] IP: $IP"
+    echo ""
 
-    echo "[✓] Nmap saved to hunt3r_nmap.txt"
+    nmap -Pn -T2 --top-ports 20 "$IP" -oN hunt3r_nmap.txt
+
+    echo ""
+    echo "[✓] Nmap results saved"
+
 else
-    echo "[!] Nmap missing"
+    echo "[SKIP] Nmap missing"
 fi
 
 echo ""
-echo "================ DONE ================"
-echo "[✓] Hunt3r complete"
+echo "======================================"
+echo "[✓] Hunt3r Recon Complete"
 echo "======================================"
